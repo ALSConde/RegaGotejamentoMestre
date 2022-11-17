@@ -5,5 +5,7 @@ Capacidade de alteração de parametros via protocolo MQTT, formato atual de env
 
 # TODO LIST:
 Atribuição automatica de ID.
+
 Retrabalho da funcao de comunicação MQTT
-Adequação do padrão de envio para algo Parecido com JSON. Ex: "Id:1,Umidade:75.35"
+
+Adequação do padrão de envio para algo Parecido com "ID:ID,PARAM:PARAM". Ex: "Id:1,Umidade:75.35"

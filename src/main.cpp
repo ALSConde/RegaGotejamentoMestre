@@ -21,7 +21,6 @@ Funcao de tratamento dos dados recebidos via mqtt
 #define BT1 4
 #define BT2 13
 #define SWT 5
-#define LED 2
 
 // Definicao dos parametros de rede
 #define SSID "Tp-link"
@@ -72,13 +71,24 @@ void callback(const char *topic, byte *payload, unsigned int length)
     aux = msg.substring(0, msg.indexOf(","));
     param = aux.substring(0, aux.indexOf(":"));
     msg = msg.substring(msg.indexOf(":") + 1, length);
-    Serial.println(param.c_str());
-    
+
     if (param.compareTo("Umidade") == 0)
     {
-      aux = "";
+      value = "";
       value = msg;
       PUmidade = value.toDouble();
+    }
+
+    aux = "";
+    aux = msg.substring(0, msg.indexOf(","));
+    param = aux.substring(0, aux.indexOf(":"));
+    msg = msg.substring(msg.indexOf(":") + 1, length);
+
+    if (param.compareTo("Campo") == 0)
+    {
+      value = "";
+      value = msg;
+      j = value.toInt();
     }
   }
   delay(750);
@@ -91,14 +101,13 @@ void setup()
   Serial.begin(9600);
 
   // Tempo de intervalo
-  delay(20);
+  delay(10);
 
   // Iniciar conexao wifi
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(SSID);
-
   WiFi.begin(SSID, PASS);
 
   // Verificar conexao wifi
@@ -177,6 +186,7 @@ void loop()
     {
       PUmidade--;
     }
+
     Serial.println("Parametro: " + String(PUmidade));
     msg = ("Parametro: " + String(PUmidade));
     cliente.publish("testeESP32", msg.c_str());

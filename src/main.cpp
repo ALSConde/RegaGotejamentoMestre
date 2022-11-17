@@ -56,21 +56,31 @@ void slaveCOM(int const slave, String msg, float const PUmidade)
 void callback(const char *topic, byte *payload, unsigned int length)
 {
   String aux = "";
-  int tam = 0;
+  String id = "";
+  String param = "";
+  String value = "";
   for (int i = 0; i < length; i++)
   {
     msg += (char)payload[i];
   }
   aux = msg.substring(0, msg.indexOf(","));
-  if (ID == aux.toInt())
+  id = aux.substring(aux.indexOf(":") + 1, aux.indexOf(","));
+  msg = msg.substring(msg.indexOf(",") + 1, length);
+  if (ID == id.toInt())
   {
     aux = "";
-    aux = msg.substring(msg.indexOf(",")+1, length);
-    PUmidade = aux.toDouble();
-    Serial.println(PUmidade);
+    aux = msg.substring(0, msg.indexOf(","));
+    param = aux.substring(0, aux.indexOf(":"));
+    msg = msg.substring(msg.indexOf(":") + 1, length);
+    Serial.println(param.c_str());
+    
+    if (param.compareTo("Umidade") == 0)
+    {
+      aux = "";
+      value = msg;
+      PUmidade = value.toDouble();
+    }
   }
-
-  Serial.println(aux.c_str());
   delay(750);
 }
 

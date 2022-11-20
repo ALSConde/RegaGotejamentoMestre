@@ -9,13 +9,13 @@ using namespace std;
 
 /*
 TODO LIST:
-Atribuicao automatica de ID distribuidos pelo MESTRE
 Atribuicao de ID aos dispositivos MESTRE, para uso no mqtt
+Atribuicao automatica de ID distribuidos pelo MESTRE
+Funcao de tratamento dos dados recebidos via mqtt
 */
 
 // Definicao do ID do mestre
 #define ID 1
-#define TAM 100
 
 // Definicao dos pinos utilizados
 #define BT1 4
@@ -23,7 +23,7 @@ Atribuicao de ID aos dispositivos MESTRE, para uso no mqtt
 #define SWT 5
 
 // Definicao dos parametros de rede
-#define SSID "TP-Link"
+#define SSID "Tp-link"
 #define PASS "lari2404"
 
 // Variaveis
@@ -36,7 +36,7 @@ int j; // J indica o numero do campo
 WiFiClient wifiCliente;
 PubSubClient cliente;
 
-// TODO: Funcao de comunicacao serial
+// Funcao de comunicação serial
 void slaveCOM(int const slave, String msg, float const PUmidade)
 {
 
@@ -51,15 +51,47 @@ void slaveCOM(int const slave, String msg, float const PUmidade)
   }
 }
 
-// TODO: Funcao de tratamento dos dados enviados via mqtt
+// TODO: Funcao de tratamento dos dados recebidos via mqtt
 void callback(const char *topic, byte *payload, unsigned int length)
 {
+  String aux = "";
+  String id = "";
+  String param = "";
+  String value = "";
   for (int i = 0; i < length; i++)
   {
-    msg = msg + (char)payload[i];
+    msg += (char)payload[i];
   }
-  Serial.println(msg.c_str());
-  delay(10000);
+  aux = msg.substring(0, msg.indexOf(","));
+  id = aux.substring(aux.indexOf(":") + 1, aux.indexOf(","));
+  msg = msg.substring(msg.indexOf(",") + 1, length);
+  if (ID == id.toInt())
+  {
+    aux = "";
+    aux = msg.substring(0, msg.indexOf(","));
+    param = aux.substring(0, aux.indexOf(":"));
+    msg = msg.substring(msg.indexOf(":") + 1, length);
+
+    if (param.compareTo("Umidade") == 0)
+    {
+      value = "";
+      value = msg;
+      PUmidade = value.toDouble();
+    }
+
+    aux = "";
+    aux = msg.substring(0, msg.indexOf(","));
+    param = aux.substring(0, aux.indexOf(":"));
+    msg = msg.substring(msg.indexOf(":") + 1, length);
+
+    if (param.compareTo("Campo") == 0)
+    {
+      value = "";
+      value = msg;
+      j = value.toInt();
+    }
+  }
+  delay(750);
 }
 
 void setup()
@@ -69,14 +101,13 @@ void setup()
   Serial.begin(9600);
 
   // Tempo de intervalo
-  delay(20);
+  delay(10);
 
   // Iniciar conexao wifi
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(SSID);
-
   WiFi.begin(SSID, PASS);
 
   // Verificar conexao wifi
@@ -107,6 +138,7 @@ void setup()
   pinMode(BT1, INPUT_PULLDOWN);
   pinMode(BT2, INPUT_PULLDOWN);
   pinMode(SWT, INPUT);
+  pinMode(LED, OUTPUT);
 
   // Iniciar o LCD
   lcd.init();
@@ -116,18 +148,12 @@ void setup()
 
 void loop()
 {
-  delay(500);
+  delay(750);
 
+  // Limpar mensagem
   msg = "";
 
-  if (cliente.connected())
-  {
-    if (ID == msg.toInt())
-    {
-      PUmidade = msg.toDouble();
-      Serial.println(PUmidade);
-    }
-  }
+  cliente.loop();
 
   // Efetuar comunicacao com o escravo responsavel pelo campo selecionado
   slaveCOM(j, msg, PUmidade);
@@ -147,7 +173,7 @@ void loop()
     }
     Serial.println("Campo: " + String(j));
     msg = ("Campo: " + String(j));
-    //cliente.publish("testeESP32", msg.c_str());
+    // cliente.publish("testeESP32", msg.c_str());
   }
   else
   {
@@ -160,9 +186,10 @@ void loop()
     {
       PUmidade--;
     }
+
     Serial.println("Parametro: " + String(PUmidade));
     msg = ("Parametro: " + String(PUmidade));
-    //cliente.publish("testeESP32", msg.c_str());
+    cliente.publish("testeESP32", msg.c_str());
   }
 
   // Limpar o LCD e exibir a mensagem
@@ -171,5 +198,5 @@ void loop()
   lcd.backlight();
   lcd.print(msg);
   Serial.println(msg);
-  delay(500);
+  delay(750);
 }

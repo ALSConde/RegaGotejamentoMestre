@@ -1,11 +1,8 @@
 ﻿# RegaGotejamentoMestre
-Projeto do Mestre para o sistema de rega. É necessario configurar o dispositivo a ser usado, e atribuir um Identificador(ID) ao dispositivo.
+Projeto do Mestre para o sistema de rega. É necessario configurar o dispositivo a ser usado.
 
-Capacidade de alteração de parametros via protocolo MQTT, formato atual de envio dos dados: ID,ParametroUmidade. Ex 1,75.60
+O envio de informações via mqtt funciona da seguinte forma, no topico Campo é postado apenas o numero do campo em que se deseja verificar a medição de umidade. No topico PUmidade é postado o setpoint de umidade desejado.
 
 # TODO LIST:
-Atribuição automatica de ID.
-
-Retrabalho da funcao de comunicação MQTT
-
-Adequação do padrão de envio para algo Parecido com "ID:ID,PARAM:PARAM". Ex: "Id:1,Umidade:75.35"
+    -Retrabalho da Serial:
+Serial funcionando, é necessario o ajuste de alguns detalhes.

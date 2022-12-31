@@ -10,7 +10,6 @@ using namespace std;
 /*
 TODO LIST:
 Atribuicao automatica de ID distribuidos pelo MESTRE
-Funcao de tratamento dos dados recebidos via mqtt
 */
 
 // Definicao dos pinos utilizados
@@ -28,8 +27,8 @@ Funcao de tratamento dos dados recebidos via mqtt
 #define TPUMIDADE "PUmidade"
 
 // Definicao dos parametros de rede
-#define SSID "TP-Link"
-#define PASS "lari2404"
+#define SSID "*****"
+#define PASS "*****"
 
 // Definicao do intervalo de tempo entre as comunicacoes
 #define INTCOM 2500
@@ -38,40 +37,24 @@ Funcao de tratamento dos dados recebidos via mqtt
 String msg;
 float PUmidade;
 float media;
-int stateSWT; // Estado da alavanca, 1 - Selecao de campo, 0 - mudanca do parametro umidade
+int stateSWT;
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 int j; // J indica o numero do campo
 WiFiClient wifiCliente;
 PubSubClient cliente;
-bool enviadoEscravo = false;
+bool jaEnviei = false;
 bool enviadoBroker = false;
 SoftwareSerial slaveCOM(U0_RXD, U0_TXD);
-int t1, t2; // Variaveis para temporizacao
+int t1, t2, t3, t4;
 
-/**
- * @brief
- * Funcao de envio do campo e parametro a ser estabelecido no escravo
- * @param int slave
- * @param float PUmidade
- */
+// Funcao de comunicação serial
 void slaveCOMEnv(int const slave, float const PUmidade);
-
-/**
- * @brief
- * Funcao de recebimento dos dados da serial
- */
 void slaveCOMRec();
+void leituraBotao();
 
-/**
- * @brief 
- * Funcao de tratamento dos dados recebidos via MQTT
- * @param char topic 
- * @param byte *payload 
- * @param int length 
- */
+// TODO: Funcao de tratamento dos dados recebidos via mqtt
 void callback(const char *topic, byte *payload, unsigned int length);
 
-// Configuracao inicial do dispositivo mestre
 void setup()
 {
 
@@ -121,112 +104,108 @@ void setup()
   pinMode(BT1, INPUT_PULLDOWN);
   pinMode(BT2, INPUT_PULLDOWN);
   pinMode(SWT, INPUT);
+  attachInterrupt(digitalPinToInterrupt(BT1), leituraBotao, HIGH);
+  attachInterrupt(digitalPinToInterrupt(BT2), leituraBotao, HIGH);
 
   // Iniciar o LCD
   lcd.init();
   lcd.begin(20, 4, 0);
   lcd.backlight();
 
-  // Iniciar conometro para envio e recebimento dos dados da serial e envio ao broker
+  // Iniciar cronometro para envio e recebimento dos dados da serial e envio ao broker
   t1 = millis();
+  // Iniciar o cronometro para o intervalo entre as acoes dos botoes
+  t3 = millis();
 }
 
-// Varredura
 void loop()
 {
 
   // Repeticao da conexao com o broker
   cliente.loop();
 
-  // Atualizar o tempo atual do cronometro
   t2 = millis();
-
-  // Verificar o tempo desde a ultima comunicacao
-  if (((t2 - t1) > INTCOM) || !enviadoEscravo)
+  if ((t2 - t1) > INTCOM)
   {
 
-    // Definir a flag de recebimento/envio dos dados do escravo como falso
-    enviadoEscravo = false;
+    // Definir a flag de recebimento dos dados do escravo como falso
+    jaEnviei = false;
 
-    // Verificar se os dados ja foram enviados ao escravo
-    if (!enviadoEscravo)
+    if (!jaEnviei)
     {
-      // Verificar se a espaco para escrita na serial
       if (slaveCOM.availableForWrite() > 0)
       {
-
         // Efetuar comunicacao com o escravo responsavel pelo campo selecionado
         slaveCOMEnv(j, PUmidade);
+        if (slaveCOM.available() > 0)
+        {
+          slaveCOMRec();
+        }
       }
-
-      // Definir a flag de envio ao escravo como verdadeiro
-      // Definir a flag de envio ao broker como falso
-      // Serial.println(msg);
-      enviadoEscravo = true;
+      Serial.println(msg);
+      jaEnviei = true;
       enviadoBroker = false;
     }
 
-    // Atualizar o inicio do cronometro
+    if (!enviadoBroker)
+    {
+      cliente.publish(TUMIDADE, msg.c_str());
+      enviadoBroker = true;
+    }
+
+    // Limpar o LCD e exibir a mensagem
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.backlight();
+    lcd.print(msg);
+    Serial.println(msg);
+
     t1 = millis();
-  }
-
-  // Verificar se ha resposta na serial
-  if (slaveCOM.available() > 0)
-  {
-
-    // Receber os dados enviados do escravo
-    slaveCOMRec();
-  }
-
-  // Verificar se ja foi enviado ao broker
-  if (!enviadoBroker)
-  {
-
-    // Enviar ao broker e definir a flag de envio ao broker como verdadeiro
-    cliente.publish(TUMIDADE, msg.c_str());
-    enviadoBroker = true;
-  }
-
-  // Limpar o LCD e exibir a mensagem
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.backlight();
-  lcd.print(msg);
-  Serial.println(msg);
-
-  // Verificar o estado da chave de selecao
-  stateSWT = digitalRead(SWT);
-  if (stateSWT == 1)
-  {
-    // Selecao de campo
-    if (digitalRead(BT1) == 1)
-    {
-      j++; // Incremento de campo
-    }
-    if (digitalRead(BT2) == 1)
-    {
-      j--; // Decremento de campo
-    }
-  }
-  else
-  {
-    // Controle do parametro umidade
-    if (digitalRead(BT1) == 1)
-    {
-      PUmidade++; // Incremento do parametro umidade
-    }
-    if (digitalRead(BT2) == 1)
-    {
-      PUmidade--; // Decremento do parametro umidade
-    }
   }
 }
 
-/*ROTINAS AUXILIARES*/
+void leituraBotao()
+{
+  // Atualizar o tempo
+  t4 = millis();
+
+  if (t4 - t3 > 250)
+  {
+    // Verificar o estado da chave de selecao
+    stateSWT = digitalRead(SWT);
+    if (stateSWT == 1)
+    {
+      // Selecao de campo
+      if (digitalRead(BT1) == 1)
+      {
+        j++;
+      }
+      if (digitalRead(BT2) == 1)
+      {
+        j--;
+      }
+    }
+    else
+    {
+      // Controle do parametro umidade
+      if (digitalRead(BT1) == 1 && PUmidade < 100)
+      {
+        PUmidade++;
+      }
+      if (digitalRead(BT2) == 1 && PUmidade > 0)
+      {
+        PUmidade--;
+      }
+    }
+
+    // Atualizar o tempo
+    t3 = millis();
+  }
+}
 
 void slaveCOMEnv(int const slave, float const PUmidade)
 {
-  String aux = "Campo:" + String(slave) + ",Parametro:" + PUmidade + ";";
+  String aux = "Id:" + String(slave) + ",Parametro:" + PUmidade + ";";
 
   // Procura o escravo para solicitar inforcao
   if (slaveCOM.availableForWrite() > 0)
@@ -239,17 +218,19 @@ void slaveCOMRec()
 {
   char c;
 
-  // Zerar mensagem
-  msg = "";
-
-  // Quando a informacao e recebida
-  while (slaveCOM.available() > 0)
+  // Verifica se houve resposta na serial
+  if (slaveCOM.available() > 0)
   {
-    c = (char)slaveCOM.read();
-    msg.concat(c);
-    if (c == ';')
+    msg = "";
+    // Quando a informacao e recebida
+    while (slaveCOM.available() > 0)
     {
-      break;
+      c = (char)slaveCOM.read();
+      msg.concat(c);
+      if (c == ';')
+      {
+        break;
+      }
     }
   }
 }
@@ -270,12 +251,15 @@ void callback(const char *topic, byte *payload, unsigned int length)
     if (aux.toInt() > 0)
     {
       j = aux.toInt();
-      enviadoEscravo = false;
+      jaEnviei = false;
     }
   }
   if (strcmp(topic, TPUMIDADE) == 0)
   {
-    PUmidade = aux.toFloat();
-    enviadoEscravo = false;
+    if (aux.toFloat() >= 0 && aux.toFloat() <= 100)
+    {
+      PUmidade = aux.toFloat();
+      jaEnviei = false;
+    }
   }
 }
